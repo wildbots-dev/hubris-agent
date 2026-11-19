@@ -41,11 +41,14 @@ jobs:
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir out --pattern '*.vsix' --pattern SHA256SUMS
           cd out
           sha256sum --check --ignore-missing SHA256SUMS
+          # --ignore-missing молчит о файле, которого нет в суммах: каждый vsix обязан там быть.
+          names=$(awk '{ n = $2; sub(/^\*/, "", n); print n }' SHA256SUMS)
+          for f in *.vsix; do grep -qxF "$f" <<< "$names" || { echo "нет суммы: $f"; exit 1; }; done
           count=$(ls *.vsix | wc -l)
           echo "vsix: $count"
           test "$count" -eq 6
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
 
