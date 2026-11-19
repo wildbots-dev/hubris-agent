@@ -1,0 +1,64 @@
+# Выкладка «Hubris — агент для кода» в Visual Studio Marketplace и Open VSX.
+#
+# Файлы собираются в основном репозитории Hubris (apps/vscode: package:all — шесть .vsix; apps/intellij: buildPlugin —
+# zip для OpenIDE) и прикладываются к выпуску здесь вместе с SHA256SUMS. Выпуск опубликован — запуск ждёт подтверждения
+# в окружении release, потом:
+#   - Marketplace — Trusted Publishing (OIDC, без токена; политика «Release workflow» у издателя hubris);
+#   - Open VSX — токен OVSX_PAT окружения release (только namespace hubris, только публикация).
+# Повторный запуск того же выпуска безопасен: уже выложенная версия пропускается (--skip-duplicate).
+# Zip для OpenIDE загружается в кабинет marketplace.openide.ru руками: способа выложить его отсюда нет.
+name: publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Тег выпуска, например v0.2.7
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - name: Файлы выпуска и их суммы
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir out --pattern '*.vsix' --pattern SHA256SUMS
+          cd out
+          sha256sum --check --ignore-missing SHA256SUMS
+          count=$(ls *.vsix | wc -l)
+          echo "vsix: $count"
+          test "$count" -eq 6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Visual Studio Marketplace
+        run: npx --yes @vscode/vsce@4.1.1 publish --oidc --skip-duplicate --packagePath out/*.vsix
+
+      - name: Open VSX
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          for f in out/*.vsix; do
+            # Open VSX изредка рвёт соединение (ECONNRESET) — одна повторная попытка.
+            npx --yes ovsx@1.4.0 publish --skip-duplicate --packagePath "$f" \
+              || { sleep 15; npx --yes ovsx@1.4.0 publish --skip-duplicate --packagePath "$f"; }
+          done
