@@ -1,10 +1,10 @@
 # Выкладка «Hubris — агент для кода» в Visual Studio Marketplace и Open VSX.
 #
 # Файлы собираются в основном репозитории Hubris (apps/vscode: package:all — шесть .vsix; apps/intellij: buildPlugin —
-# zip для OpenIDE) и прикладываются к выпуску здесь вместе с SHA256SUMS. Выпуск опубликован — запуск ждёт подтверждения
-# в окружении release, потом:
-#   - Marketplace — Trusted Publishing (OIDC, без токена; политика «Release workflow» у издателя hubris);
-#   - Open VSX — токен OVSX_PAT окружения release (только namespace hubris, только публикация).
+# zip для OpenIDE) и прикладываются к выпуску здесь вместе с SHA256SUMS. Выпуск опубликован — сразу выкладка:
+#   - Marketplace — Trusted Publishing (OIDC, без токена; политика «Release workflow» у издателя hubris, без окружения:
+#     появится `environment:` в задаче — дописать то же имя в политику, иначе обмен токена не пройдёт);
+#   - Open VSX — секрет репозитория OVSX_PAT (токен только на namespace hubris, только публикация).
 # Повторный запуск того же выпуска безопасен: уже выложенная версия пропускается (--skip-duplicate).
 # Zip для OpenIDE загружается в кабинет marketplace.openide.ru руками: способа выложить его отсюда нет.
 name: publish
@@ -28,7 +28,6 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: release
     permissions:
       contents: read
       id-token: write
